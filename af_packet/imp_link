@@ -1,0 +1,34 @@
+https://gist.github.com/mcastelino/0a5cd40cee9768ef233b6864ce6902d4
+https://docs.gz.ro/tuning-network-cards-on-linux.html
+https://blog.cloudflare.com/bpf-the-forgotten-bytecode/
+command
+
+- to configure ip address
+   ip address add 20.20.20.1/24 dev eth0
+- tp del ip address 
+   ip address add 20.20.20.1/24 dev eth0
+
+- dump tcp packet
+ sudo tcpdump -xxnnei enp4s0 -vvv
+
+- property of an interface
+ ethtool -k eth0
+- to set the prop of interface
+ sudo ethtool -K enp4s0 rxvlan on >> making this as off will instruct not to strip of the vlan tag
+
+- to make a link up
+ ip link set eth0.10 up
+ 
+- tp configure a vlan interface
+sudo ip link add link enp4s0 name eth0.10 type vlan id 10
+
+to add a route
+ip route add 20.20.20.0/24 dev enp4s0
+
+ip route show
+
+to dump the raw socket
+ss -f link -lnp
+
+to dump the ip  address on the network
+sudo arp-scan --localnet  --interface=wlp3s0

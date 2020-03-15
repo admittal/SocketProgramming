@@ -8,7 +8,20 @@
 #include <linux/if_packet.h>
 #include <sys/ioctl.h>
 #include <poll.h>
+#include <linux/if_ether.h>
+#include <linux/filter.h>
 
+
+struct sock_filter BPF_MAC_FILTER [] = {
+   {BPF_LD | BPF_W | BPF_ABS, 0 , 0, 0},
+   {BPF_JMP | BPF_JEQ | BPF_K , 5, 0, 0xb827eb52},
+   {BPF_LD | BPF_W | BPF_ABS, 0 , 0, 3},
+   {BPF_JMP | BPF_JEQ | BPF_K, 5, 0, 0xb75c},
+   {BPF_RET | BPF_K, 0, 0, 0xff},
+   {BPF_RET | BPF_K, 0, 0, 0},
+};
+
+unsigned short filterLen = (sizeof BPF_MAC_FILTER / sizeof BPF_MAC_FILTER[0]);
 void oam_debug_print_frame(u_char *pFrameContent, uint32_t frameSize)
 {
 #define OCTETS_PER_LINE 16
@@ -40,18 +53,28 @@ int main (void)
    struct ifreq ifr;
    struct sockaddr_ll addr;
    struct socklen_t *addr_len = NULL;
-   const char *if_name = {"eth0"};
+   const char *if_name = {"enp4s0"};
    int ifindex;
    struct pollfd fds;
+   struct sock_fprog fprog;
+   struct sock_filter filter;
    nfds_t nfds = 1;
    int rc =0;
-   int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+   int fd = socket(AF_PACKET, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK , htons(ETH_P_8021Q));
    if (fd == -1) {
       perror("socket");
       exit(1);
    }
    printf("fd=%d\n",fd);
-
+   /*
+   memset(&fprog,0,sizeof(fprog));
+   fprog.len = filterLen;
+   fprog.filter = BPF_MAC_FILTER;
+   if (rc = setsockopt (fd, SOL_SOCKET, SO_ATTACH_FILTER, &fprog, sizeof(fprog)) < 0)
+   {
+      perror("filter attach failed\n");
+   }
+   */
    size_t if_name_len = strlen(if_name);
    if (if_name_len < sizeof(ifr.ifr_name)) {
       memcpy(ifr.ifr_name, if_name, if_name_len);
@@ -78,28 +101,29 @@ int main (void)
    fds.fd =fd;
    fds.events = POLLIN;
    fds.revents = 0;
-   rc = poll(&fds, nfds, 30000);
-   if (rc < 0)
-   {
-      perror("poll() failed");
-   }
-   if (rc == 0)
-   {
-      printf("poll() timed out.\n");
-   }
    for (;;)
    {
-   ssize_t count = read(fd, buffer, sizeof(buffer), 0, (struct sockaddr*)&addr, &addr_len);
-   if (count == -1) {
-          perror("recvfrom");
-              exit(1);
-   } else if (count == sizeof(buffer)) {
-          fprintf(stderr, "frame too large for buffer: truncated\n");
-   } else {
-          printf("==================================\n")      ; 
-          oam_debug_print_frame (buffer, count);
-          printf("==================================\n")       ;
-   }
+      rc = poll(&fds, nfds, 30000);
+      if (rc < 0)
+      {
+         perror("poll() failed");
+      }
+      if (rc == 0)
+      {
+         printf("poll() timed out.\n");
+      }
+      printf("Something on socket to read\n");
+      ssize_t count = read(fd, buffer, sizeof(buffer), 0, (struct sockaddr*)&addr, &addr_len);
+      if (count == -1) {
+         perror("recvfrom");
+         exit(1);
+      } else if (count == sizeof(buffer)) {
+         fprintf(stderr, "frame too large for buffer: truncated\n");
+      } else {
+         printf("==================================\n")      ; 
+         oam_debug_print_frame (buffer, count);
+         printf("==================================\n")       ;
+      }
    }
    return 0;
 }
