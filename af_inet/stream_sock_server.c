@@ -15,7 +15,7 @@ void main (int argc, void **argv)
 {
    int sock = -1 , sock_accept = -1, rc, length;
    struct sockaddr_in addr;
-   char on = 1;
+   int on = 1;
    char buffer[BUFFER_LEN];
    struct pollfd fds;
     nfds_t nfds = 1;
@@ -69,7 +69,8 @@ void main (int argc, void **argv)
       fds.fd = sock_accept;
       fds.events = POLLIN;
       fds.revents = 0;
-
+      while (1){
+         printf("Inside while\n");
       rc = poll (&fds,nfds,timeout);
       if (rc < 0)
       {
@@ -82,7 +83,6 @@ void main (int argc, void **argv)
          perror("poll timeou");
          break;
       }
-
       length = BUFFER_LEN;
       rc = setsockopt (sock_accept, SOL_SOCKET, SO_RCVLOWAT, (char *) &length, sizeof(length));
 
@@ -100,12 +100,14 @@ void main (int argc, void **argv)
          printf("data was sent\n");
          break;
       }
-
+      printf("%s\n",buffer);
+      memset(&buffer,'b',sizeof(buffer));
       rc = send(sock_accept, buffer, sizeof(buffer), 0);
       if (rc < 0)
       {
          perror("send() failed");
          break;
+      }
       }
    } while (0);
 
